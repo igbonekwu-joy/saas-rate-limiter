@@ -5,7 +5,8 @@ import { UpdateApiKeyDto } from './dto/update-api-key.dto';
 @Injectable()
 export class ApiKeysService {
   create(createApiKeyDto: CreateApiKeyDto) {
-    return 'This action adds a new apiKey';
+    return { message: 'API key created', name: createApiKeyDto.name };
+    //return 'This action adds a new apiKey';
   }
 
   findAll() {
