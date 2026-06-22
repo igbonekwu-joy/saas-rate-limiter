@@ -1,10 +1,11 @@
-import { ConflictException, Injectable } from '@nestjs/common';
+import { ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { SignUpDto } from './dto/signup.dto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { User } from 'src/users/entities/user.entity';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
+import { LoginDto } from './dto/login.dto';
 
 @Injectable()
 export class AuthService {
@@ -39,8 +40,25 @@ export class AuthService {
     return { token, user };
   }
 
-  findAll() {
-    return `This action returns all auth`;
+  async login(loginDto: LoginDto) {
+    const user = await this.userRepository.findOne({
+      where: {
+        email: loginDto.email
+      }
+    });
+
+    if (!user) {
+      throw new UnauthorizedException('Invalid Credentials');
+    }
+
+    const passwordMatch = await bcrypt.compare(loginDto.password, user.password);
+
+    if (!passwordMatch) {
+      throw new UnauthorizedException('Invalid Credentials');
+    }
+
+    const token = this.jwtService.sign({ sub: user.id, email: user.email });
+    return { token, user };
   }
 
   findOne(id: number) {
