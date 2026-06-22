@@ -4,6 +4,7 @@ import { AppService } from './app.service';
 import { ApiKeysModule } from './api-keys/api-keys.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { UsersModule } from './users/users.module';
 
 @Module({
   imports: [
@@ -23,7 +24,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
         entities: [__dirname + '/**/*.entity{.ts,.js}'],
         synchronize: true, // dev only . typeorm automatically creates/updates tables to match entities
       }),
-    }),
+    }), UsersModule,
   ],
   controllers: [AppController],
   providers: [AppService],
