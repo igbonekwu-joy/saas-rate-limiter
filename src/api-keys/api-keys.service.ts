@@ -1,12 +1,27 @@
 import { Injectable } from '@nestjs/common';
 import { CreateApiKeyDto } from './dto/create-api-key.dto';
 import { UpdateApiKeyDto } from './dto/update-api-key.dto';
+import { InjectRepository } from '@nestjs/typeorm';
+import { ApiKey } from './entities/api-key.entity';
+import { Repository } from 'typeorm';
+import { randomBytes } from 'crypto';
 
 @Injectable()
 export class ApiKeysService {
-  create(createApiKeyDto: CreateApiKeyDto) {
-    return { message: 'API key created', name: createApiKeyDto.name };
-    //return 'This action adds a new apiKey';
+  constructor(
+    @InjectRepository(ApiKey)
+    private apiKeyRepository: Repository<ApiKey>
+  ){}
+
+  async create(createApiKeyDto: CreateApiKeyDto, userId: string) {
+    const apiKey = this.apiKeyRepository.create({
+      key: randomBytes(32).toString('hex'),
+      name: createApiKeyDto.name,
+      rateLimitPerMinute: createApiKeyDto.rateLimitPerMinute,
+      user: { id: userId }
+    })
+
+    return this.apiKeyRepository.save(apiKey);
   }
 
   findAll() {
