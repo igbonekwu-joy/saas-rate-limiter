@@ -1,8 +1,9 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards } from '@nestjs/common';
 import { ApiKeysService } from './api-keys.service';
 import { CreateApiKeyDto } from './dto/create-api-key.dto';
 import { UpdateApiKeyDto } from './dto/update-api-key.dto';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiKeyGuard } from './guards/api-key.guard';
 
 @ApiTags('API Keys')
 @Controller('api-keys')
@@ -15,6 +16,12 @@ export class ApiKeysController {
   create(@Body() createApiKeyDto: CreateApiKeyDto) {
     const fakeUserId = '85b2ee76-9e91-4726-a4e2-4672f25110f1';
     return this.apiKeysService.create(createApiKeyDto, fakeUserId);
+  }
+
+  @Get('guard-test')
+  @UseGuards(ApiKeyGuard)
+  guardTest() {
+    return { message: 'Protected route accessed successfully' };
   }
 
   @Get()
