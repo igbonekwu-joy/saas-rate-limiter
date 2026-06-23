@@ -12,6 +12,9 @@ export class User {
     @Column()
     password!: string;
 
+    @Column({ nullable: true })
+    refreshToken?: string;
+
     @OneToMany(() => ApiKey, (apiKey) => apiKey.user)
     apiKeys!: ApiKey[];
 
