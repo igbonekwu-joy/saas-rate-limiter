@@ -4,7 +4,6 @@ import { CreateApiKeyDto } from './dto/create-api-key.dto';
 import { UpdateApiKeyDto } from './dto/update-api-key.dto';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { ApiKeyGuard } from './guards/api-key.guard';
-import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 
 @ApiTags('API Keys')
 @Controller('api-keys')
@@ -12,7 +11,6 @@ export class ApiKeysController {
   constructor(private readonly apiKeysService: ApiKeysService) {}
 
   @Post()
-  @UseGuards(JwtAuthGuard)
   @ApiOperation({ summary: 'Generate a new API key for the authenticated user' })
   @ApiResponse({ status: 201, description: 'Key created successfully' })
   create(@Body() createApiKeyDto: CreateApiKeyDto, @Req() req) {
