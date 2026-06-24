@@ -9,6 +9,6 @@ export class RequestLog {
     @Column()
     apiKeyId!: string;
 
-    @CreateDateColumn()
-    createdAt!: Date
+    @CreateDateColumn({ name: 'created_at' })
+    timestamp!: Date
 }

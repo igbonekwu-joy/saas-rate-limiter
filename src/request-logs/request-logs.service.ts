@@ -18,7 +18,7 @@ export class RequestLogsService {
     return this.requestLogRepository
       .createQueryBuilder('log')
       .where('log.apiKeyId = :apiKeyId', { apiKeyId })
-      .andWhere('log.timestamp >= :windowStart', { windowStart })
+      .andWhere('log.created_at >= :windowStart', { windowStart })
       .getCount();
   }
 
