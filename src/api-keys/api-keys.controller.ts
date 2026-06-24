@@ -13,7 +13,7 @@ export class ApiKeysController {
   @Post()
   @ApiOperation({ summary: 'Generate a new API key for the authenticated user' })
   @ApiResponse({ status: 201, description: 'Key created successfully' })
-  create(@Body() createApiKeyDto: CreateApiKeyDto) {
+  create(@Body() createApiKeyDto: CreateApiKeyDto, @Req() req) {
     const fakeUserId = '85b2ee76-9e91-4726-a4e2-4672f25110f1';
     return this.apiKeysService.create(createApiKeyDto, fakeUserId);
   }
