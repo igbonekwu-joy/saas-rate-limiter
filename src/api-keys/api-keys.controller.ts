@@ -3,7 +3,7 @@ import { ApiKeysService } from './api-keys.service';
 import { CreateApiKeyDto } from './dto/create-api-key.dto';
 import { UpdateApiKeyDto } from './dto/update-api-key.dto';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { ApiKeyGuard } from './guards/api-key.guard';
+import { ApiKeyGuard } from './guards/rate-limit.guard';
 
 @ApiTags('API Keys')
 @Controller('api-keys')
