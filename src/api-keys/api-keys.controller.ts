@@ -2,7 +2,7 @@ import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Req } fro
 import { ApiKeysService } from './api-keys.service';
 import { CreateApiKeyDto } from './dto/create-api-key.dto';
 import { UpdateApiKeyDto } from './dto/update-api-key.dto';
-import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiOperation, ApiResponse, ApiSecurity, ApiTags } from '@nestjs/swagger';
 import { ApiKeyGuard } from './guards/rate-limit.guard';
 
 @ApiTags('API Keys')
@@ -20,6 +20,7 @@ export class ApiKeysController {
 
   @Get('guard-test')
   @UseGuards(ApiKeyGuard)
+  @ApiSecurity('api-key')
   guardTest() {
     return { message: 'Protected route accessed successfully' };
   }

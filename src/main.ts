@@ -16,7 +16,7 @@ async function bootstrap() {
     .setTitle('API Rate Limiting Platform')
     .setDescription('Protect your APIs with sliding-window rate limiting')
     .setVersion('1.0')
-    .addApiKey({ type: 'apiKey', name: 'X-API-Key', in: 'header' }, 'api-key')
+    .addApiKey({ type: 'apiKey', name: 'x-api-key', in: 'header' }, 'api-key')
     .addBearerAuth() // for your own dashboard/user auth, separate from customer API keys
     .build();
 
