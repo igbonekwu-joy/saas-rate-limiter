@@ -4,6 +4,15 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Cron, CronExpression } from '@nestjs/schedule';
 
+export interface RateLimitResult {
+  allowed: boolean;
+  limit: number;
+  currentCount: number;
+  remaining: number;
+  resetAt: Date;       // when the current bucket resets
+  retryAfter: number;  // seconds to wait (only meaningful when blocked)
+}
+
 @Injectable()
 export class RateLimitCountersService {
     constructor(
@@ -48,7 +57,7 @@ export class RateLimitCountersService {
         apiKeyId: string, 
         limit: number,
         windowSeconds:number
-    ): Promise<{ allowed: boolean, currentCount: number, limit: number }> {
+    ): Promise<RateLimitResult> {
         const currentBucket = this.getCurrentBucket(windowSeconds);
         const prevBucket = this.getPreviousBucket(windowSeconds);
 
@@ -78,10 +87,23 @@ export class RateLimitCountersService {
             previousCount * overlapRatio + currentCount
         );
 
+        // when does the current bucket end? that's when the window resets
+        const resetAt = new Date(
+            currentBucket.getTime() + windowSeconds * 1000,
+        );
+
+        const remaining = Math.max(0, limit - estimatedCount);
+        const retryAfter = Math.ceil(
+            (resetAt.getTime() - Date.now()) / 1000,
+        );
+
         return {
             allowed: estimatedCount < limit,
             currentCount: estimatedCount,
-            limit
+            limit,
+            remaining,
+            resetAt,
+            retryAfter,
         }
     }
 
