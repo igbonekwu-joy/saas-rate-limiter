@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { RateLimitCounter } from './entities/rate-limit-counter.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { Cron, CronExpression } from '@nestjs/schedule';
 
 @Injectable()
 export class RateLimitCountersService {
@@ -69,6 +70,8 @@ export class RateLimitCountersService {
     }
 
     // delete old buckets older than 2 minutes
+    // automatically runs every minute
+    @Cron(CronExpression.EVERY_MINUTE)
     async deleteOldBuckets(): Promise<void> {
         const cutOff = new Date(Date.now() - 2 * 60 * 1000);
         await this.counterRepository

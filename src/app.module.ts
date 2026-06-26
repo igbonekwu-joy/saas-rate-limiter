@@ -7,6 +7,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { UsersModule } from './users/users.module';
 import { RequestLogsModule } from './request-logs/request-logs.module';
 import { RateLimitCountersModule } from './rate-limit-counters/rate-limit-counters.module';
+import { ScheduleModule } from '@nestjs/schedule';
 
 @Module({
   imports: [
@@ -26,7 +27,11 @@ import { RateLimitCountersModule } from './rate-limit-counters/rate-limit-counte
         entities: [__dirname + '/**/*.entity{.ts,.js}'],
         synchronize: true, // dev only . typeorm automatically creates/updates tables to match entities
       }),
-    }), UsersModule, RequestLogsModule, RateLimitCountersModule,
+    }), 
+    UsersModule, 
+    RequestLogsModule, 
+    RateLimitCountersModule,
+    ScheduleModule.forRoot(),
   ],
   controllers: [AppController],
   providers: [AppService],
