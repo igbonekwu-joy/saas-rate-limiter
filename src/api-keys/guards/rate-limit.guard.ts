@@ -3,8 +3,8 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { ApiKey } from "../entities/api-key.entity";
 import { Repository } from "typeorm";
 import { RequestLogsService } from "src/request-logs/request-logs.service";
-import { config } from "process";
 import { ConfigService } from "@nestjs/config";
+import { RateLimitException } from '../../common/exceptions/rate-limit.exception';
 import { RateLimitCountersService } from "src/rate-limit-counters/rate-limit-counters.service";
 
 @Injectable()
@@ -68,16 +68,7 @@ export class ApiKeyGuard {
         );
 
         if (!minuteCheck.allowed) {
-            throw new HttpException(
-                {
-                    statusCode: 429,
-                    message: 'Rate limit exceeded',
-                    limit: apiKey.rateLimitPerMinute,
-                    windowSeconds: this.config.get<number>('WINDOW_SECONDS', 60),
-                    currentCount: minuteCheck.currentCount,
-                },
-                HttpStatus.TOO_MANY_REQUESTS
-            )
+            throw new RateLimitException(minuteCheck, 'minute');
         }
 
         // check burst limit
@@ -88,16 +79,7 @@ export class ApiKeyGuard {
         );
 
         if (!burstCheck.allowed) {
-            throw new HttpException(
-                {
-                    statusCode: 429,
-                    message: 'Burst limit exceeded. Too many requests in a single second',
-                    limit: burstCheck.limit,
-                    currentCount: burstCheck.currentCount,
-                    windowSeconds: 1,
-                },
-                HttpStatus.TOO_MANY_REQUESTS,
-            );
+            throw new RateLimitException(burstCheck, 'burst');
         }
 
         // attach results to request so the interceptor can set headers
