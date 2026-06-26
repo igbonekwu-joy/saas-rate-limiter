@@ -68,6 +68,7 @@ export class ApiKeyGuard {
         );
 
         if (!minuteCheck.allowed) {
+            await this.rateLimitCountersService.recordRejection(apiKey.id + ':minute', 60);
             throw new RateLimitException(minuteCheck, 'minute');
         }
 
@@ -79,6 +80,7 @@ export class ApiKeyGuard {
         );
 
         if (!burstCheck.allowed) {
+            await this.rateLimitCountersService.recordRejection(apiKey.id + ':burst', 1);
             throw new RateLimitException(burstCheck, 'burst');
         }
 

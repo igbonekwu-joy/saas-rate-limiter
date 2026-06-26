@@ -14,5 +14,8 @@ export class RateLimitCounter {
     bucketTime!: Date; // start time of the bucket
 
     @Column({ type: 'int', default: 0 })
-    count!: number;
+    count!: number; // allowed requests
+
+    @Column({ type: 'int', default: 0 })
+    rejectedCount!: number; // rejected requests
 }

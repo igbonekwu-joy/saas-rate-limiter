@@ -107,6 +107,21 @@ export class RateLimitCountersService {
         }
     }
 
+    async recordRejection(
+        apiKeyId: string,
+        windowSeconds: number = 60,
+    ): Promise<void> {
+        const currentBucket = this.getCurrentBucket(windowSeconds);
+
+        await this.counterRepository.query(
+            `INSERT INTO rate_limit_counter ("apiKeyId", "bucketTime", count, "rejectedCount")
+            VALUES ($1, $2, 0, 1)
+            ON CONFLICT ("apiKeyId", "bucketTime")
+            DO UPDATE SET "rejectedCount" = rate_limit_counter."rejectedCount" + 1`,
+            [apiKeyId, currentBucket],
+        );
+    }
+
     // delete old buckets older than 2 minutes
     // automatically runs every minute
     @Cron(CronExpression.EVERY_MINUTE)
