@@ -2,9 +2,10 @@ import { Injectable } from '@nestjs/common';
 import { CreateApiKeyDto } from './dto/create-api-key.dto';
 import { UpdateApiKeyDto } from './dto/update-api-key.dto';
 import { InjectRepository } from '@nestjs/typeorm';
-import { ApiKey } from './entities/api-key.entity';
+import { ApiKey, Plan } from './entities/api-key.entity';
 import { Repository } from 'typeorm';
 import { randomBytes } from 'crypto';
+import { PLAN_LIMITS } from './config/plans.config';
 
 @Injectable()
 export class ApiKeysService {
@@ -14,12 +15,24 @@ export class ApiKeysService {
   ){}
 
   async create(createApiKeyDto: CreateApiKeyDto, userId: string) {
+    const plan = (createApiKeyDto.plan as Plan) ?? Plan.FREE;
+    const limits = PLAN_LIMITS[plan];
+
     const apiKey = this.apiKeyRepository.create({
       key: randomBytes(32).toString('hex'),
       name: createApiKeyDto.name,
-      rateLimitPerMinute: createApiKeyDto.rateLimitPerMinute,
-      user: { id: userId }
-    })
+      plan,
+      rateLimitPerMinute: limits.rateLimitPerMinute,
+      burstLimitPerSecond: limits.burstLimitPerSecond,
+      user: { id: userId },
+    });
+
+    // const apiKey = this.apiKeyRepository.create({
+    //   key: randomBytes(32).toString('hex'),
+    //   name: createApiKeyDto.name,
+    //   rateLimitPerMinute: createApiKeyDto.rateLimitPerMinute,
+    //   user: { id: userId }
+    // })
 
     return this.apiKeyRepository.save(apiKey);
   }

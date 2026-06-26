@@ -11,30 +11,46 @@ export class RateLimitCountersService {
         private counterRepository: Repository<RateLimitCounter>,
     ) {}
 
-    private getCurrentBucket(): Date {
-        const now = new Date();
-        now.setSeconds(0, 0); // set to the beginning of the minute (11:45 AM -> 11:00 AM)
-        return now;
+    private getCurrentBucket(windowSeconds: number): Date {
+        const now: any = new Date();
+        // now.setSeconds(0, 0); // set to the beginning of the minute (11:45 AM -> 11:00 AM)
+        // return now;
+
+        // the windowSeconds is now dynamic
+        // floor to the nearest bucket boundary
+        // e.g. for 60s: 12:00:45 → 12:00:00
+        // e.g. for 1s:  12:00:45.300 → 12:00:45.000
+        const bucketMs = windowSeconds * 1000;
+        return new Date(Math.floor(now / bucketMs) * bucketMs);
     }
 
-    private getPreviousBucket(): Date {
-        const prev = this.getCurrentBucket();
-        prev.setMinutes(prev.getMinutes() - 1); // go back by one minute
-        return prev;
+    private getPreviousBucket(windowSeconds: number): Date {
+        // const prev = this.getCurrentBucket();
+        // prev.setMinutes(prev.getMinutes() - 1); // go back by one minute
+        // return prev;
+
+        const current = this.getCurrentBucket(windowSeconds);
+        return new Date(current.getTime() - windowSeconds * 1000);
     }
 
-    private getOverlapRatio(): number {
-        const secondsIntoCurrentBucket = new Date().getSeconds();
+    private getOverlapRatio(windowSeconds: number): number {
+        // const secondsIntoCurrentBucket = new Date().getSeconds();
 
-        // check how much of the previous bucket is still in the 60s window
-        return (60 - secondsIntoCurrentBucket) / 60;
+        // // check how much of the previous bucket is still in the 60s window
+        // return (60 - secondsIntoCurrentBucket) / 60;
+
+        const bucketMs = windowSeconds * 1000;
+        const msIntoBucket = Date.now() % bucketMs;
+        return (bucketMs - msIntoBucket) / bucketMs;
     }
 
     async incrementAndCheck(
-        apiKeyId: string, limit: number
+        apiKeyId: string, 
+        limit: number,
+        windowSeconds:number
     ): Promise<{ allowed: boolean, currentCount: number, limit: number }> {
-        const currentBucket = this.getCurrentBucket();
-        const prevBucket = this.getPreviousBucket();
+        const currentBucket = this.getCurrentBucket(windowSeconds);
+        const prevBucket = this.getPreviousBucket(windowSeconds);
 
         // upsert. insert count = 1 or increment by 1 if it exists.
         await this.counterRepository.query(
@@ -56,7 +72,7 @@ export class RateLimitCountersService {
 
         const currentCount = currentRow?.count ?? 0;
         const previousCount = previousRow?.count ?? 0;
-        const overlapRatio = this.getOverlapRatio(); 
+        const overlapRatio = this.getOverlapRatio(windowSeconds); 
 
         const estimatedCount = Math.ceil(
             previousCount * overlapRatio + currentCount
@@ -64,7 +80,7 @@ export class RateLimitCountersService {
 
         return {
             allowed: estimatedCount < limit,
-            currentCount,
+            currentCount: estimatedCount,
             limit
         }
     }
@@ -81,6 +97,3 @@ export class RateLimitCountersService {
             .execute();
     }
 }
-
-// shouldn't overlap be multiplied by 100?
-// why is count not in ""

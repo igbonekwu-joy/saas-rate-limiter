@@ -60,19 +60,44 @@ export class ApiKeyGuard {
         // await this.requestLogsService.logRequest(apiKey.id);
 
         // this single call replaces separate count + log
-        const result = await this.rateLimitCountersService.incrementAndCheck(apiKey.id, apiKey.rateLimitPerMinute);
+        // check per-minute limit
+        const minuteCheck = await this.rateLimitCountersService.incrementAndCheck(
+            apiKey.id + ':minute', 
+            apiKey.rateLimitPerMinute,
+            60
+        );
 
-        if (!result.allowed) {
+        if (!minuteCheck.allowed) {
             throw new HttpException(
                 {
                     statusCode: 429,
                     message: 'Rate limit exceeded',
                     limit: apiKey.rateLimitPerMinute,
                     windowSeconds: this.config.get<number>('WINDOW_SECONDS', 60),
-                    currentCount: result.currentCount,
+                    currentCount: minuteCheck.currentCount,
                 },
                 HttpStatus.TOO_MANY_REQUESTS
             )
+        }
+
+        // check burst limit
+        const burstCheck = await this.rateLimitCountersService.incrementAndCheck(
+            apiKey.id + ':burst', // different namespace from the minute check
+            apiKey.burstLimitPerSecond,
+            1,
+        );
+
+        if (!burstCheck.allowed) {
+            throw new HttpException(
+                {
+                    statusCode: 429,
+                    message: 'Burst limit exceeded. Too many requests in a single second',
+                    limit: burstCheck.limit,
+                    currentCount: burstCheck.currentCount,
+                    windowSeconds: 1,
+                },
+                HttpStatus.TOO_MANY_REQUESTS,
+            );
         }
 
         request.apiKey = apiKey;
