@@ -3,6 +3,8 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { ApiKey } from "../entities/api-key.entity";
 import { Repository } from "typeorm";
 import { RequestLogsService } from "src/request-logs/request-logs.service";
+import { config } from "process";
+import { ConfigService } from "@nestjs/config";
 
 @Injectable()
 export class ApiKeyGuard {
@@ -10,6 +12,7 @@ export class ApiKeyGuard {
         @InjectRepository(ApiKey)
         private apiKeyRepository: Repository<ApiKey>,
         private readonly requestLogsService: RequestLogsService,
+        private config: ConfigService
     ) {}
 
     async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -34,7 +37,7 @@ export class ApiKeyGuard {
         }
 
         // Count requests in current window
-        const WINDOW_SECONDS = 60;
+        const WINDOW_SECONDS = this.config.get<number>('WINDOW_SECONDS', 60);
         const requestsCount = await this.requestLogsService.countRequestsInWindow(apiKey.id, WINDOW_SECONDS);
 
         // Reject if it's over the limit
