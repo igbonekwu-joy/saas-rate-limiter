@@ -8,6 +8,8 @@ import { UsersModule } from './users/users.module';
 import { RequestLogsModule } from './request-logs/request-logs.module';
 import { RateLimitCountersModule } from './rate-limit-counters/rate-limit-counters.module';
 import { ScheduleModule } from '@nestjs/schedule';
+import { RateLimitFilter } from './common/filters/rate-limit.filter';
+import { APP_FILTER } from '@nestjs/core';
 
 @Module({
   imports: [
@@ -34,6 +36,12 @@ import { ScheduleModule } from '@nestjs/schedule';
     ScheduleModule.forRoot(),
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    {
+      provide: APP_FILTER,
+      useClass: RateLimitFilter, // NestJS handles instantiation
+    },
+  ],
 })
 export class AppModule {}

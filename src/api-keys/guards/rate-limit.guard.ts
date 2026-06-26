@@ -100,6 +100,12 @@ export class ApiKeyGuard {
             );
         }
 
+        // attach results to request so the interceptor can set headers
+        request.rateLimitResults = {
+            minute: minuteCheck,
+            burst: burstCheck,
+        };
+
         request.apiKey = apiKey;
 
         return true;

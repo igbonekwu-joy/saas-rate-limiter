@@ -2,6 +2,8 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { ValidationPipe } from '@nestjs/common';
+import { RateLimitFilter } from './common/filters/rate-limit.filter';
+import { RateLimitHeadersInterceptor } from './common/interceptors/rate-limit-headers.interceptor';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -11,6 +13,8 @@ async function bootstrap() {
     forbidNonWhitelisted: true,
     transform: true,
   }));
+  //app.useGlobalFilters(new RateLimitFilter());
+  app.useGlobalInterceptors(new RateLimitHeadersInterceptor());
 
   const config = new DocumentBuilder()
     .setTitle('API Rate Limiting Platform')
