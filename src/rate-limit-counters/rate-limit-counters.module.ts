@@ -10,5 +10,6 @@ import { RateLimitCounter } from './entities/rate-limit-counter.entity';
   ],
   controllers: [RateLimitCountersController],
   providers: [RateLimitCountersService],
+  exports: [RateLimitCountersService],
 })
 export class RateLimitCountersModule {}
