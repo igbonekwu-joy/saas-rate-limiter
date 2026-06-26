@@ -26,7 +26,5 @@ export class RateLimitFilter implements ExceptionFilter {
   }
 }
 
-// difference between implements and extends
-// explain super in details
-// what does this entire file do?
-// filters, exceptions, interceptors 
+// Interceptor runs before and after every request
+// When exceptions are thrown, the interceptor doesn't run, and nest looks for a filter to handle it
