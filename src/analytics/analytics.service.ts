@@ -23,16 +23,16 @@ export class AnalyticsService {
 
         // aggregate raw counters into per-key per-hour summaries
         const rows = await this.counterRepository.query(
-        `SELECT
-            "apiKeyId",
-            DATE_TRUNC('hour', "bucketTime") AS "hourBucket",
-            SUM(count)          AS "totalRequests",
-            SUM("rejectedCount") AS "totalRejections"
-        FROM rate_limit_counter
-        WHERE "bucketTime" >= $1
-            AND namespace = 'minute'
-        GROUP BY "apiKeyId", DATE_TRUNC('hour', "bucketTime")`,
-        [since],
+            `SELECT
+                "apiKeyId",
+                DATE_TRUNC('hour', "bucketTime") AS "hourBucket",
+                SUM(count)          AS "totalRequests",
+                SUM("rejectedCount") AS "totalRejections"
+            FROM rate_limit_counter
+            WHERE "bucketTime" >= $1
+               AND "apiKeyId" LIKE '%:minute'
+            GROUP BY "apiKeyId", DATE_TRUNC('hour', "bucketTime")`,
+            [since],
         );
 
         // upsert each summary row into the rollup table
@@ -54,7 +54,7 @@ export class AnalyticsService {
                 SET "rolledUpAt" = NOW()
                 WHERE "apiKeyId" = $1
                     AND DATE_TRUNC('hour', "bucketTime") = $2
-                    AND namespace = 'minute'
+                    AND "apiKeyId" LIKE '%:minute'
                     AND "rolledUpAt" IS NULL`,
                 [row.apiKeyId, row.hourBucket],
             );
@@ -70,10 +70,10 @@ export class AnalyticsService {
             .select('r.hourBucket', 'hour')
             .addSelect('r.totalRequests', 'requests')
             .addSelect('r.totalRejections', 'rejections')
-            .where('r.apiKeyId = :apiKeyId', { apiKeyId })
-            .andWhere('r.hourBucket >= :since', { since })
+            .where('r.apiKeyId LIKE :apiKeyId', { apiKeyId })
+            .andWhere('r.hourBucket >= :since', { since }) 
             .orderBy('r.hourBucket', 'ASC')
-            .getRawMany();
+            .getRawMany(); // return rows as plain array
 
         return {
             apiKeyId,
@@ -111,7 +111,7 @@ export class AnalyticsService {
             .createQueryBuilder('r')
             .select('SUM(r.totalRequests)', 'totalRequests')
             .addSelect('SUM(r.totalRejections)', 'totalRejections')
-            .where('r.apiKeyId = :apiKeyId', { apiKeyId })
+            .where('r.apiKeyId LIKE :apiKeyId', { apiKeyId })
             .andWhere('r.hourBucket >= :since', { since })
             .getRawOne();
 
@@ -140,7 +140,7 @@ export class AnalyticsService {
             .createQueryBuilder('r')
             .select('SUM(r.totalRequests)', 'totalRequests')
             .addSelect('SUM(r.totalRejections)', 'totalRejections')
-            .addSelect('COUNT(DISTINCT r.apiKeyId)', 'activeKeys')
+            .addSelect('COUNT(DISTINCT r.apiKeyId)', 'activeKeys') // DISTINCT: don't count the same row twice
             .where('r.hourBucket >= :since', { since })
             .getRawOne();
 
@@ -159,3 +159,8 @@ export class AnalyticsService {
         };
     }
 }
+
+
+// DATE_TRUNC('hour', "bucketTime") chops the timestamp down to just the hour. 12:34:56 becomes 12:00:00
+// GROUP BY "apiKeyId", DATE_TRUNC('hour', "bucketTime")` puts all rows that share the same apiKeyId and hour into one group
+// EXCLUDED."totalRequests" and EXCLUDED."totalRejections" are used to update the existing row with the new values
