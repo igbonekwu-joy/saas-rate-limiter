@@ -20,20 +20,20 @@ A production-grade SaaS API rate limiting service built with NestJS and PostgreS
 
 ## Overview
 
-Most APIs need rate limiting, but building it correctly is harder than it looks. This platform implements rate limiting as a standalone service that any API can plug into. It handles the hard parts: concurrent request counting without race conditions, burst traffic detection, plan-based limits, and aggregated analytics — all backed by PostgreSQL with no Redis dependency.
+Most APIs need rate limiting, but building it correctly is harder than it looks. This platform implements rate limiting as a standalone service that any API can plug into. It handles the hard parts: concurrent request counting without race conditions, burst traffic detection, plan-based limits, and aggregated analytics, all backed by PostgreSQL with no Redis dependency.
 
 ---
 
 ## Features
 
-- **API key generation and management** — users generate keys tied to their account, each with plan-based limits applied automatically
-- **Sliding window counter algorithm** — accurate rate limiting that avoids the boundary bug of fixed-window approaches
-- **Per-plan limits** — free tier (100 req/min) and paid tier (10,000 req/min) with limits set automatically on key creation
-- **Burst limiting** — a second, independent 1-second window prevents traffic spikes even when per-minute limits aren't exceeded
-- **Proper HTTP rate limit headers** — every response carries `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`, and `Retry-After` on 429s
-- **Analytics and usage reporting** — pre-computed rollup tables give fast dashboard queries regardless of traffic volume
-- **Rejection tracking** — rejected requests are counted separately, enabling accurate rejection rate reporting
-- **Automatic cleanup** — scheduled jobs delete rolled-up raw counter rows to keep the table small
+- **API key generation and management**: users generate keys tied to their account, each with plan-based limits applied automatically
+- **Sliding window counter algorithm**: accurate rate limiting that avoids the boundary bug of fixed-window approaches
+- **Per-plan limits**: free tier (100 req/min) and paid tier (10,000 req/min) with limits set automatically on key creation
+- **Burst limiting**: a second, independent 1-second window prevents traffic spikes even when per-minute limits aren't exceeded
+- **Proper HTTP rate limit headers**: every response carries `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`, and `Retry-After` on 429s
+- **Analytics and usage reporting**: pre-computed rollup tables give fast dashboard queries regardless of traffic volume
+- **Rejection tracking**: rejected requests are counted separately, enabling accurate rejection rate reporting
+- **Automatic cleanup**: scheduled jobs delete rolled-up raw counter rows to keep the table small
 
 ---
 
@@ -96,15 +96,15 @@ Most APIs need rate limiting, but building it correctly is harder than it looks.
 
 1. Request arrives with `X-API-Key` header
 2. `RateLimitGuard` looks up the key in the database
-3. Two sliding window checks run in sequence — per-minute and burst
-4. Each check does an atomic upsert (`ON CONFLICT DO UPDATE SET count = count + 1`) — no race conditions
+3. Two sliding window checks run in sequence: per-minute and burst
+4. Each check does an atomic upsert (`ON CONFLICT DO UPDATE SET count = count + 1`), no race conditions
 5. If both pass, results are attached to the request and the controller runs
 6. `RateLimitHeadersInterceptor` adds quota headers to the 200 response on the way out
 7. If either check fails, `RateLimitException` is thrown and `RateLimitFilter` handles the 429 response with headers
 
 ### Rollup pipeline
 
-Every 5 minutes, a cron job (`computeRollups`) aggregates per-minute raw counter rows into hourly summaries in `analytics_rollup` using `DATE_TRUNC('hour', bucketTime)`. After each row is safely written to the rollup table, the raw counter rows are stamped with `rolledUpAt`. A separate cleanup cron deletes only stamped rows — ensuring no data is deleted before it has been summarised.
+Every 5 minutes, a cron job (`computeRollups`) aggregates per-minute raw counter rows into hourly summaries in `analytics_rollup` using `DATE_TRUNC('hour', bucketTime)`. After each row is safely written to the rollup table, the raw counter rows are stamped with `rolledUpAt`. A separate cleanup cron deletes only stamped rows, ensuring no data is deleted before it has been summarised.
 
 ---
 
@@ -115,7 +115,7 @@ Every 5 minutes, a cron job (`computeRollups`) aggregates per-minute raw counter
 | Framework | NestJS |
 | Database | PostgreSQL |
 | ORM | TypeORM |
-| Validation | Zod + nestjs-zod |
+| Validation | class-validator |
 | Scheduling | @nestjs/schedule |
 | API Docs | Swagger (OpenAPI) |
 | Package Manager | pnpm |
@@ -129,7 +129,6 @@ Every 5 minutes, a cron job (`computeRollups`) aggregates per-minute raw counter
 
 - Node.js 18+
 - pnpm
-- Docker (for running PostgreSQL locally)
 
 ### 1. Clone the repository
 
@@ -172,7 +171,7 @@ pnpm run start:prod
 
 Visit `http://localhost:3000/docs` to explore and test all endpoints interactively.
 
-> **Note:** `synchronize: true` is enabled in development — TypeORM will create and update all database tables automatically on startup. Never use this in production; use migrations instead.
+> **Note:** `synchronize: true` is enabled in development. TypeORM will create and update all database tables automatically on startup. Never use this in production; use migrations instead.
 
 ---
 
@@ -269,8 +268,8 @@ This is atomic at the database level, no two concurrent requests can both read t
 
 Every request is checked against two windows simultaneously:
 
-- **Per-minute window (60s)** — enforces the plan-based limit (e.g. 100 req/min for free tier)
-- **Burst window (1s)** — enforces the burst limit (e.g. 20 req/sec) to prevent traffic spikes from overwhelming downstream services even when the per-minute limit hasn't been hit
+- **Per-minute window (60s)**: enforces the plan-based limit (e.g. 100 req/min for free tier)
+- **Burst window (1s)**: enforces the burst limit (e.g. 20 req/sec) to prevent traffic spikes from overwhelming downstream services even when the per-minute limit hasn't been hit
 
 Both must pass for the request to go through.
 
