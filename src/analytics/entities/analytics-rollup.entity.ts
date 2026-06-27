@@ -8,6 +8,8 @@ import {
 
 @Entity()
 @Unique(['apiKeyId', 'hourBucket']) // one row per key per hour
+@Index(['hourBucket'])           // speeds up time-range queries across all keys
+@Index(['apiKeyId', 'hourBucket']) // speeds up per-key time-range queries
 export class AnalyticsRollup {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
