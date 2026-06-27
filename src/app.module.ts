@@ -10,6 +10,7 @@ import { RateLimitCountersModule } from './rate-limit-counters/rate-limit-counte
 import { ScheduleModule } from '@nestjs/schedule';
 import { RateLimitFilter } from './common/filters/rate-limit.filter';
 import { APP_FILTER } from '@nestjs/core';
+import { AnalyticsModule } from './analytics/analytics.module';
 
 @Module({
   imports: [
@@ -34,6 +35,7 @@ import { APP_FILTER } from '@nestjs/core';
     RequestLogsModule, 
     RateLimitCountersModule,
     ScheduleModule.forRoot(),
+    AnalyticsModule,
   ],
   controllers: [AppController],
   providers: [
