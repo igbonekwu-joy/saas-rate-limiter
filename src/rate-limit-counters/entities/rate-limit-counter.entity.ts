@@ -18,4 +18,7 @@ export class RateLimitCounter {
 
     @Column({ type: 'int', default: 0 })
     rejectedCount!: number; // rejected requests
+
+    @Column({ type: 'timestamptz', nullable: true })
+    rolledUpAt!: Date | null; // time when the bucket was rolled up. null if it has not been rolled up
 }

@@ -122,15 +122,15 @@ export class RateLimitCountersService {
         );
     }
 
-    // delete old buckets older than 2 minutes
+    // delete old buckets that have been rolled up
     // automatically runs every minute
     @Cron(CronExpression.EVERY_MINUTE)
     async deleteOldBuckets(): Promise<void> {
-        const cutOff = new Date(Date.now() - 2 * 60 * 1000);
+        //const cutOff = new Date(Date.now() - 3 *60 * 60 * 1000);
         await this.counterRepository
             .createQueryBuilder()
             .delete()
-            .where('bucketTime < :cutOff', { cutOff })
+            .where('"rolledUpAt" IS NOT NULL')
             .execute();
     }
 }
