@@ -10,7 +10,6 @@ A production-grade SaaS API rate limiting service built with NestJS and PostgreS
 - [Features](#features)
 - [Architecture](#architecture)
 - [Tech Stack](#tech-stack)
-- [Project Structure](#project-structure)
 - [Installation](#installation)
 - [Environment Variables](#environment-variables)
 - [API Endpoints](#api-endpoints)
@@ -35,7 +34,6 @@ Most APIs need rate limiting, but building it correctly is harder than it looks.
 - **Analytics and usage reporting**: pre-computed rollup tables give fast dashboard queries regardless of traffic volume
 - **Rejection tracking**: rejected requests are counted separately, enabling accurate rejection rate reporting
 - **Automatic cleanup**: scheduled jobs delete rolled-up raw counter rows to keep the table small
-- **Real-time metrics via SSE**: live requests/sec and rejections/sec streamed to connected clients without polling, per key and platform-wide
 
 ---
 
@@ -99,7 +97,7 @@ Most APIs need rate limiting, but building it correctly is harder than it looks.
 1. Request arrives with `X-API-Key` header
 2. `RateLimitGuard` looks up the key in the database
 3. Two sliding window checks run in sequence: per-minute and burst
-4. Each check does an atomic upsert (`ON CONFLICT DO UPDATE SET count = count + 1`): no race conditions
+4. Each check does an atomic upsert (`ON CONFLICT DO UPDATE SET count = count + 1`), no race conditions
 5. If both pass, results are attached to the request and the controller runs
 6. `RateLimitHeadersInterceptor` adds quota headers to the 200 response on the way out
 7. If either check fails, `RateLimitException` is thrown and `RateLimitFilter` handles the 429 response with headers
@@ -107,30 +105,6 @@ Most APIs need rate limiting, but building it correctly is harder than it looks.
 ### Rollup pipeline
 
 Every 5 minutes, a cron job (`computeRollups`) aggregates per-minute raw counter rows into hourly summaries in `analytics_rollup` using `DATE_TRUNC('hour', bucketTime)`. After each row is safely written to the rollup table, the raw counter rows are stamped with `rolledUpAt`. A separate cleanup cron deletes only stamped rows, ensuring no data is deleted before it has been summarised.
-
-### Real-time metrics pipeline
-
-```
-RateLimitGuard
-      │
-      │ emits 'request.allowed' or 'request.rejected' event
-      │ (via @nestjs/event-emitter) on every request
-      ▼
-MetricsService
-      │
-      │ @OnEvent listeners increment in-memory counters
-      │ per apiKeyId (resets after each SSE push)
-      ▼
-MetricsController (@Sse)
-      │
-      │ interval(1000) ticks every second
-      │ reads + resets snapshot from MetricsService
-      │ pushes MessageEvent down the open SSE connection
-      ▼
-Connected client receives live update every second
-```
-
-The reset-after-read pattern means each SSE push shows the delta since the last push — a true per-second rate — rather than a growing cumulative count.
 
 ---
 
@@ -143,8 +117,6 @@ The reset-after-read pattern means each SSE push shows the delta since the last 
 | ORM | TypeORM |
 | Validation | class-validator |
 | Scheduling | @nestjs/schedule |
-| Real-time | Server-Sent Events (SSE) |
-| Event Bus | @nestjs/event-emitter |
 | API Docs | Swagger (OpenAPI) |
 | Package Manager | pnpm |
 | Runtime | Node.js |
@@ -199,7 +171,7 @@ pnpm run start:prod
 
 Visit `http://localhost:3000/docs` to explore and test all endpoints interactively.
 
-> **Note:** `synchronize: true` is enabled in development, so TypeORM will create and update all database tables automatically on startup. Never use this in production; use migrations instead.
+> **Note:** `synchronize: true` is enabled in development. TypeORM will create and update all database tables automatically on startup. Never use this in production; use migrations instead.
 
 ---
 
@@ -233,47 +205,6 @@ Visit `http://localhost:3000/docs` to explore and test all endpoints interactive
 | GET | `/analytics/top-keys` | Top 10 keys by request volume (last 24h) | None |
 | GET | `/analytics/usage/:apiKeyId` | Hourly usage for a specific key (last 24h) | None |
 | GET | `/analytics/rejection-rate/:apiKeyId` | Rejection rate for a specific key (last 24h) | None |
-
-### Real-time Metrics (SSE)
-
-| Method | Endpoint | Description | Auth |
-|---|---|---|---|
-| GET (SSE) | `/metrics/live` | Platform-wide live metrics, pushed every second | None |
-| GET (SSE) | `/metrics/live/:apiKeyId` | Per-key live metrics, pushed every second | None |
-
-Connect to these endpoints with any SSE client. The connection stays open and the server pushes a fresh snapshot every second.
-
-**Per-key stream example** (`/metrics/live/:apiKeyId`):
-
-```json
-{
-  "apiKeyId": "abc-123",
-  "requestsPerSecond": 8,
-  "rejectionsPerSecond": 2,
-  "timestamp": "2026-06-24T12:00:01.000Z"
-}
-```
-
-**Platform-wide stream example** (`/metrics/live`):
-
-```json
-{
-  "totalRequestsPerSecond": 143,
-  "totalRejectionsPerSecond": 12,
-  "activeKeys": 5,
-  "timestamp": "2026-06-24T12:00:01.000Z"
-}
-```
-
-**Testing with curl:**
-
-```bash
-# keep connection open, watch live updates
-curl -N http://localhost:3000/metrics/live
-
-# per-key stream
-curl -N http://localhost:3000/metrics/live/your-api-key-id
-```
 
 ### Response Headers
 
@@ -346,12 +277,6 @@ Both must pass for the request to go through.
 
 Raw counter rows are aggregated every 5 minutes into `analytics_rollup` using `DATE_TRUNC('hour', bucketTime)`. Analytics queries always hit the small rollup table rather than the potentially large raw counter table, keeping dashboard queries fast regardless of traffic volume. Raw rows are only deleted after they have been confirmed as rolled up via the `rolledUpAt` timestamp.
 
-### Real-time metrics with SSE
-
-Every request that passes through `RateLimitGuard` emits an event (`request.allowed` or `request.rejected`) via `@nestjs/event-emitter`. `MetricsService` listens for these events and maintains in-memory counters per API key. The SSE endpoints (`/metrics/live` and `/metrics/live/:apiKeyId`) use RxJS `interval(1000)` to tick every second, read the current in-memory snapshot, reset the counters, and push the delta to the connected client as a `MessageEvent`.
-
-This approach deliberately keeps the hot path (rate limit check + event emit) free of any extra database writes. The in-memory counters absorb the write cost and the SSE push is a cheap read.
-
 ---
 
 ## Design Decisions
@@ -360,16 +285,10 @@ This approach deliberately keeps the hot path (rate limit check + event emit) fr
 Redis is the conventional choice for rate limiting counters because of its speed. This project deliberately uses PostgreSQL to demonstrate that correct, race-condition-free counters are achievable with atomic SQL upserts, and that the performance bottleneck can be addressed through algorithm design (counter buckets vs. timestamp rows) rather than by adding infrastructure dependencies.
 
 **Why the sliding window approximation instead of exact sliding window?**
-An exact sliding window stores every request timestamp and counts those within the last N seconds. This is accurate but requires scanning rows on every request, so it does not scale. The counter approximation trades a small margin of inaccuracy (assumes even distribution within each bucket) for queries that always touch exactly two rows, regardless of traffic volume.
+An exact sliding window stores every request timestamp and counts those within the last N seconds. This is accurate but requires scanning rows on every request, therefore it does not scale. The counter approximation trades a small margin of inaccuracy (assumes even distribution within each bucket) for queries that always touch exactly two rows, regardless of traffic volume.
 
 **Why a separate rollup table for analytics?**
 Querying `rate_limit_counter` directly for analytics would work at low traffic but becomes slow as the table grows. Pre-computing hourly summaries in `analytics_rollup` means dashboard queries always aggregate a small table of summaries rather than millions of raw rows. The 5-minute staleness is an acceptable tradeoff for the query performance guarantee.
 
 **Why are raw counters only deleted after rollup confirmation?**
 A naive cleanup job that deletes rows older than N minutes would race against the rollup job and delete data before it has been summarised. Stamping rows with `rolledUpAt` after confirmed rollup and only deleting stamped rows eliminates this race condition entirely.
-
-**Why SSE instead of WebSockets for real-time metrics?**
-WebSockets are bidirectional, the client can send messages back to the server. The metrics dashboard only needs one-way communication: server pushes data, client just displays it. SSE is purpose-built for this pattern, is simpler to implement, works natively in every browser without extra libraries, and reconnects automatically if the connection drops. WebSockets would add complexity with no benefit here.
-
-**Why in-memory counters for SSE instead of querying the database every second?**
-Querying `rate_limit_counter` every second per connected client would create a database read storm as the number of SSE subscribers grows. In-memory counters in `MetricsService` absorb all the write cost from `EventEmitter` and make each SSE push a simple map lookup — zero database queries on the hot path. The tradeoff is that these counters don't survive a process restart and aren't shared across multiple instances, which is acceptable for a single-instance deployment.
