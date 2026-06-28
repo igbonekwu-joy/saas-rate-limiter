@@ -6,6 +6,7 @@ import { RequestLogsService } from "src/request-logs/request-logs.service";
 import { ConfigService } from "@nestjs/config";
 import { RateLimitException } from '../../common/exceptions/rate-limit.exception';
 import { RateLimitCountersService } from "src/rate-limit-counters/rate-limit-counters.service";
+import { EventEmitter2 } from "@nestjs/event-emitter";
 
 @Injectable()
 export class ApiKeyGuard {
@@ -14,6 +15,7 @@ export class ApiKeyGuard {
         private apiKeyRepository: Repository<ApiKey>,
         private rateLimitCountersService: RateLimitCountersService,
         private readonly requestLogsService: RequestLogsService,
+        private eventEmitter: EventEmitter2,
         private config: ConfigService
     ) {}
 
@@ -69,6 +71,14 @@ export class ApiKeyGuard {
 
         if (!minuteCheck.allowed) {
             await this.rateLimitCountersService.recordRejection(apiKey.id + ':minute', 60);
+
+            // emit rejection event for SSE stream
+            this.eventEmitter.emit('request.rejected', {
+                apiKeyId: apiKey.id,
+                reason: 'per-minute limit',
+                timestamp: new Date(),
+            });
+
             throw new RateLimitException(minuteCheck, 'minute');
         }
 
@@ -81,8 +91,22 @@ export class ApiKeyGuard {
 
         if (!burstCheck.allowed) {
             await this.rateLimitCountersService.recordRejection(apiKey.id + ':burst', 1);
+
+            this.eventEmitter.emit('request.rejected', {
+                apiKeyId: apiKey.id,
+                reason: 'burst limit',
+                timestamp: new Date(),
+            });
+
             throw new RateLimitException(burstCheck, 'burst');
         }
+
+        // emit allowed event for SSE stream
+        this.eventEmitter.emit('request.allowed', {
+            apiKeyId: apiKey.id,
+            remaining: minuteCheck.remaining,
+            timestamp: new Date(),
+        });
 
         // attach results to request so the interceptor can set headers
         request.rateLimitResults = {

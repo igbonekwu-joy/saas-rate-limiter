@@ -11,11 +11,14 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { RateLimitFilter } from './common/filters/rate-limit.filter';
 import { APP_FILTER } from '@nestjs/core';
 import { AnalyticsModule } from './analytics/analytics.module';
+import { EventEmitterModule } from '@nestjs/event-emitter';
+import { MetricsModule } from './metrics/metrics.module';
 
 @Module({
   imports: [
     ApiKeysModule,
     ConfigModule.forRoot({ isGlobal: true }), // loads .env, available everywhere
+    EventEmitterModule.forRoot(),
 
     TypeOrmModule.forRootAsync({ // async because it needs to wait for configservice to load .env
       imports: [ConfigModule],
@@ -36,6 +39,7 @@ import { AnalyticsModule } from './analytics/analytics.module';
     RateLimitCountersModule,
     ScheduleModule.forRoot(),
     AnalyticsModule,
+    MetricsModule,
   ],
   controllers: [AppController],
   providers: [
